@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitor de Servidor - WebSocket</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 24px; background: #f5f5f5; }
+        h1 { color: #333; }
+        .card { background: white; border: 1px solid #ddd; border-radius: 8px;
+                padding: 16px; margin-bottom: 16px; }
+        .valor { font-size: 1.6em; font-weight: bold; color: #1B5E20; }
+        .status-box { padding: 12px; border-radius: 6px; background: #e8f5e9; }
+        .barra-bg { background: #e0e0e0; border-radius: 4px; height: 14px; margin-top: 6px; }
+        .barra { height: 14px; border-radius: 4px; transition: width 0.4s; }
+    </style>
+</head>
+<body>
+    <h1>Monitor de Servidor (WebSocket STOMP)</h1>
+
+    <div class="card status-box">
+        <p>Status da conexão: <strong id="status" style="color: red;">Desconectado</strong></p>
+        <p>Total de mensagens recebidas: <strong id="msgCount">0</strong></p>
+    </div>
+
+    <div class="card">
+        <p>CPU: <span id="cpu" class="valor">-</span>%</p>
+        <div class="barra-bg">
+            <div class="barra" id="barra-cpu" style="background:#e53935;width:0%"></div>
+        </div>
+        <p style="margin-top:16px">Memória: <span id="memoria" class="valor">-</span>%</p>
+        <div class="barra-bg">
+            <div class="barra" id="barra-mem" style="background:#43a047;width:0%"></div>
+        </div>
+        <p style="margin-top:16px">Uptime: <span id="uptime" class="valor">-</span> s</p>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let msgCount = 0;
+
+        function connect() {
+            const socket = new SockJS('/ws-metricas');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null;
+
+            stompClient.connect({}, function () {
+                document.getElementById('status').textContent = 'Conectado';
+                document.getElementById('status').style.color = 'green';
+
+                stompClient.subscribe('/topic/metricas', function (msg) {
+                    msgCount++;
+                    document.getElementById('msgCount').textContent = msgCount;
+                    const data = JSON.parse(msg.body);
+                    document.getElementById('cpu').textContent = data.cpu;
+                    document.getElementById('memoria').textContent = data.memoria;
+                    document.getElementById('uptime').textContent = data.uptimeSegundos;
+                    document.getElementById('barra-cpu').style.width = data.cpu + '%';
+                    document.getElementById('barra-mem').style.width = data.memoria + '%';
+                });
+
+            }, function () {
+                document.getElementById('status').textContent = 'Desconectado';
+                document.getElementById('status').style.color = 'red';
+                setTimeout(connect, 5000);
+            });
+        }
+
+        connect();
+    </script>
+</body>
+</html>
